@@ -1,0 +1,7 @@
+This application will just read a twitter user's last tweet, check if it is new 
+and then tweet it out again...but with a twist, it will change some of the words
+in the tweet.
+
+The token's should be added to the TwitterService.java file before it can read
+or tweet.
+

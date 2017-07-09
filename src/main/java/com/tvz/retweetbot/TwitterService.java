@@ -33,8 +33,19 @@ public TwitterService(){
 @Override
 public void run(){
     logger.info("Twitter service executing");
+    ClassLoader loader = Thread.currentThread().getContextClassLoader();  
+    InputStream stream = loader.getResourceAsStream("twitter.properties");
+    Properties twitterProps = new Properties();
+    try {
+        twitterProps.load(stream);
+    } catch (IOException ex) {
+       logger.error(ex);
+    }
+    boolean useTwitter = twitterProps.getProperty("twitter_enabled").equalsIgnoreCase("true");
     
-    Twitter twitter = creatTwitterService();
+    Twitter twitter = null;
+    if(useTwitter)        
+            twitter = creatTwitterService(twitterProps);
     String datafile = "tweetfile.dat";
     HashMap<String,String> dictionary = buildDictionary();
     
@@ -42,18 +53,21 @@ public void run(){
         try {
             try {
                 //Read latest tweet
-                String latestTweet = readTweet(twitter, "realDonaldTrump");
+                String latestTweet = "";
+                latestTweet = readTweet(twitter, "realDonaldTrump", useTwitter);
                 //Check if the tweet was sent previously
                 boolean newTweet = latestTweet != null 
-                            && isNewTweet(latestTweet, datafile);
+                            && isNewTweet(latestTweet, datafile,useTwitter);
                 if(newTweet){
                     //Create a new tweet to send.
                     String updatedTweet = letsMakeItInteresting(latestTweet, dictionary);
                     //Send the new tweet out.
-                    Status status = twitter.updateStatus(updatedTweet);
+                    Status status = null;
+                    if(useTwitter)
+                     status = twitter.updateStatus(updatedTweet);
                     if(true){ //check status = ok
                         //Write the latest tweet to file
-                        writeTweet(latestTweet, datafile);
+                        writeTweet(latestTweet, datafile, useTwitter);
                     }
                 }
                 //logger.info("Successfully updated the status to [" + status + "].");
@@ -77,7 +91,7 @@ private static String letsMakeItInteresting(String latestTweet,
     String result = latestTweet;
     latestTweet = latestTweet.replace("&amp;", "or");
     for(Map.Entry<String, String> entry : dictionary.entrySet()) {
-        result = checkAndReplace(latestTweet, entry.getKey(), entry.getValue());
+        result = checkAndReplace(result, entry.getKey(), entry.getValue());
     }
     if (result.length() + "@realDonaldTrump ".length() <= 140) result = 
                 "@realDonaldTrump " + result;
@@ -101,7 +115,8 @@ private static HashMap<String, String> buildDictionary(){
         contents.forEach((pair) -> {
             int index = pair.indexOf(",");
             String key = pair.substring(0, index).replace("\"", "");
-            String value = pair.substring(index, pair.length()).replace("\"", "");
+            String value = pair.substring(index+1, pair.length()).replace("\"", "");
+            logger.debug(String.format("%1s %2s", key, value));
             dictionary.put(key, value);
         });
         
@@ -112,18 +127,24 @@ private static HashMap<String, String> buildDictionary(){
     return dictionary;
 }
 
-private static void writeTweet(String latestTweet,String datafile){
+private static void writeTweet(String latestTweet,String datafile, 
+                                boolean useTwitter){
+    
     try {
         List<String> lines = Arrays.asList(latestTweet);
         Path file = Paths.get(datafile);
+        if(useTwitter)
         Files.write(file, lines, Charset.forName("UTF-8"));
     } catch (IOException ex) {
         logger.error(ex);
     }
 }
 
-private static boolean isNewTweet(String latestTweet, String filename){
+private static boolean isNewTweet(String latestTweet, String filename, 
+                                boolean useTwitter){
     logger.info("Check if tweet is new ");
+    if(!useTwitter) return true;
+    
     boolean result = false;
     try {
         File file = new File(filename);
@@ -142,15 +163,20 @@ private static boolean isNewTweet(String latestTweet, String filename){
     return result;
 }
 
-private static String readTweet(Twitter twitter, String twitterUser){
+private static String readTweet(Twitter twitter, String twitterUser, 
+                                boolean useTwitter){
     logger.info("Read tweet");
     String result = null;
     try {
         result = "This is a test tweet that should not be too long.";
         Paging paging = new Paging(1, 100);
         List<Status> statuses;
-        statuses = twitter.getUserTimeline(twitterUser,paging);
-        result = statuses.get(0).getText();
+        if(useTwitter){
+            statuses = twitter.getUserTimeline(twitterUser,paging);
+            result = statuses.get(0).getText();
+        } else {
+            result = "America Democrats announce";
+        }
     } catch (TwitterException ex) {
         logger.error(ex);
     }
@@ -180,26 +206,17 @@ private static String footerText(String text)
     return text;
 }
 
-private static Twitter creatTwitterService(){
+private static Twitter creatTwitterService(Properties twitterProps){
     Twitter twitter = null;
-    try {
-        ClassLoader loader = Thread.currentThread().getContextClassLoader();  
-        InputStream stream = loader.getResourceAsStream("twitter.properties");
-        Properties twitterProps = new Properties();
-
-        twitterProps.load(stream);
-
-        TwitterFactory factory = new TwitterFactory();
-        AccessToken accessToken = new AccessToken(
-                                twitterProps.getProperty("token_key"), 
-                                twitterProps.getProperty("token_secret")); 
-        twitter = factory.getInstance();
-        twitter.setOAuthConsumer(twitterProps.getProperty("consumer_key"), 
-                                twitterProps.getProperty("consumer_secret"));
-        twitter.setOAuthAccessToken(accessToken);
-    } catch (IOException ex) {
-        logger.error(ex);
-    }    
+    TwitterFactory factory = new TwitterFactory();
+    AccessToken accessToken = new AccessToken(
+                            twitterProps.getProperty("token_key"), 
+                            twitterProps.getProperty("token_secret")); 
+    twitter = factory.getInstance();
+    twitter.setOAuthConsumer(twitterProps.getProperty("consumer_key"), 
+                            twitterProps.getProperty("consumer_secret"));
+    twitter.setOAuthAccessToken(accessToken);
+ 
     return twitter;
 }
 

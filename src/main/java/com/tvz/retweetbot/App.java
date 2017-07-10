@@ -23,7 +23,7 @@ public class App
     //configure the appender
     String PATTERN = "%d [%p|%c|%C{1}] %m%n";
     console.setLayout(new PatternLayout(PATTERN)); 
-    console.setThreshold(Level.FATAL);
+    console.setThreshold(Level.DEBUG);
     console.activateOptions();
     //add appender to any Logger (here is root)
     Logger.getRootLogger().addAppender(console);
@@ -32,7 +32,7 @@ public class App
     fa.setName("FileLogger");
     fa.setFile("RetweetBot.log");
     fa.setLayout(new PatternLayout("%d %-5p [%c{1}] %m%n"));
-    fa.setThreshold(Level.DEBUG);
+    fa.setThreshold(Level.INFO);
     fa.setAppend(true);
     fa.activateOptions();
 

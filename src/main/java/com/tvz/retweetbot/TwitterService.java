@@ -42,7 +42,7 @@ public void run(){
        logger.error(ex);
     }
     boolean useTwitter = twitterProps.getProperty("twitter_enabled").equalsIgnoreCase("true");
-    
+    logger.info("Use Twitter enabled :"+useTwitter);
     Twitter twitter = null;
     if(useTwitter)        
             twitter = creatTwitterService(twitterProps);
@@ -88,14 +88,15 @@ public void run(){
 private static String letsMakeItInteresting(String latestTweet, 
                                             HashMap<String, String> dictionary){
     logger.debug("Making it interesting.");
-    String result = latestTweet;
+    String result = "";
     latestTweet = latestTweet.replace("&amp;", "or");
     for(Map.Entry<String, String> entry : dictionary.entrySet()) {
-        result = checkAndReplace(result, entry.getKey(), entry.getValue());
+        if(latestTweet.toLowerCase().contains(entry.getKey().toLowerCase()))
+            latestTweet = checkAndReplace(latestTweet, entry.getKey(), entry.getValue());
     }
-    if (result.length() + "@realDonaldTrump ".length() <= 140) result = 
-                "@realDonaldTrump " + result;
-    result = footerText(result);
+    if (latestTweet.length() + "@realDonaldTrump ".length() <= 140) latestTweet = 
+                "@realDonaldTrump " + latestTweet;
+    result = footerText(latestTweet);
     logger.info("New tweet :"+result);
     
     return result;
@@ -103,7 +104,11 @@ private static String letsMakeItInteresting(String latestTweet,
 
 public static String checkAndReplace(String text, String origText, String newText)
 {
-    return text.length() - origText.length() + newText.length() <= 140 ? text.replace(origText, newText) : text;
+	String result = text;
+	if(result.length() - origText.length() + newText.length() <= 140){
+		result = result.replace(origText, newText);
+	}
+	return result;
 }
 
 private static HashMap<String, String> buildDictionary(){
